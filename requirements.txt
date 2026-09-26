@@ -1,0 +1,27 @@
+# CG-DBNet: Context-Guided Dual-Branch Network for SST Prediction and Quality Control
+# Installation: pip install -r requirements.txt
+# Tested environment: conda base (Python 3.12, PyTorch 2.5.1, CUDA 12.1)
+
+# --- Deep Learning Framework ---
+torch>=2.2,<3
+
+# --- Numerical Computing ---
+numpy>=1.24,<2
+
+# --- Data Processing ---
+pandas>=2.0,<3
+openpyxl>=3.0,<4
+
+# --- Machine Learning (preprocessing, metrics, PCA) ---
+scikit-learn>=1.0,<2
+scipy>=1.10,<2
+
+# --- Visualization ---
+matplotlib>=3.5,<4
+seaborn>=0.12,<1
+
+# --- Progress Bar ---
+tqdm>=4.60,<5
+
+# --- XGBoost baseline ---
+xgboost>=2.0,<3

@@ -3,8 +3,8 @@
 **Context-Guided Dual-Branch Network for Sea Surface Temperature Prediction and Quality Control**
 
 A PyTorch framework for **ocean time-series prediction** and **data quality control (QC)** on
-sea surface temperature (SST) observations, together with baseline models and data-processing
-utilities. Every input and output path is supplied through command-line arguments.
+sea surface temperature (SST) observations, together with data-processing utilities. Every input
+and output path is supplied through command-line arguments.
 
 ## Overview
 
@@ -44,9 +44,6 @@ Two tasks are supported:
    `mu +/- k * sigma` as anomalous, where `k` is calibrated on the validation split, and repairs
    flagged values with `mu` before recomputing the features of subsequent steps.
 
-Baselines: **LSTM / GRU / TCN / Transformer / XGBoost**, selectable through the two experiment entry
-scripts and also provided as standalone runnable prediction scripts under `experiments/baselines/`.
-
 ## Environment
 
 - Tested environment: conda base (Python 3.12, PyTorch 2.5.1, CUDA 12.1).
@@ -57,11 +54,7 @@ pip install -r requirements.txt
 
 `requirements.txt` pins every dependency to a tested range (`torch>=2.2,<3`, `numpy>=1.24,<2`,
 `pandas>=2.0,<3`, `openpyxl>=3.0,<4`, `scikit-learn>=1.0,<2`, `scipy>=1.10,<2`,
-`matplotlib>=3.5,<4`, `seaborn>=0.12,<1`, `tqdm>=4.60,<5`, `xgboost>=2.0,<3`).
-
-> **XGBoost is a required dependency.** The `--model xgboost` path of both experiment entry points
-> imports `xgboost` directly and raises a `RuntimeError` when it cannot be imported, so those runs
-> require an environment installed from `requirements.txt`.
+`matplotlib>=3.5,<4`, `seaborn>=0.12,<1`, `tqdm>=4.60,<5`).
 
 Figures produced by the two experiment entry points use the `DejaVu Sans` font, and all in-figure
 text is English. The utilities in `data_processing/` apply their own journal style (serif face,
@@ -75,18 +68,18 @@ default naming and column scheme. Each one still has to be reviewed when the inp
 | What | Default | How to change it |
 | --- | --- | --- |
 | Series column names | prediction `--time_col time`, `--target_col sst`, `--feature_cols air_temperature sea_level_pressure`; QC `--time_col date`, `--target_col sst`, `--feature_cols` empty | pass the flags, or rename the columns in your files |
-| Grid-point file names | built-in Latin rule `(lat|latitude)...(lon|longitude)`, which also supplies the coordinates | `--file_pattern` with **exactly two capture groups**, the first the latitude and the second the longitude |
+| Grid-point file names | built-in Latin rule `(lat\|latitude)...(lon\|longitude)`, which also supplies the coordinates | `--file_pattern` with **exactly two capture groups**, the first the latitude and the second the longitude |
 | Latitude / longitude source | column aliases `lat`/`latitude` and `lon`/`longitude` (case-insensitive), otherwise the two capture groups above | provide either one; a station with neither is reported and skipped |
 | Non-Latin file names or column headers | not recognised by default | supply `--file_pattern` and the matching `--time_col` / `--target_col` / `--feature_cols` values |
 | QC workbook layout | sheets `train`, `val`, `test`; anomaly column `label` | `--train_sheet`, `--eval_sheet`, `--test_sheet`, `--label_col` |
 | External evaluation data | `--test_path ./data/test.xlsx`; when it resolves to nothing, the DatasetB outputs are simply not written | point it at a single file or a directory of stations |
-| Study-region bounds | `LAT_MIN/LAT_MAX = 28.0/32.0`, `LON_MIN/LON_MAX = 122.0/126.0`, seven `geo_*` features | class attributes in the entry scripts (no flag); edit them for another basin |
+| Study-region bounds | 29.0-31.5 N and 123.0-125.5 E, seven `geo_*` features | `REGION_LAT_MIN` / `REGION_LAT_MAX` and `REGION_LON_MIN` / `REGION_LON_MAX` in `src/data_utils.py` are the only place the numbers are written (no flag); `PredConfig` in `experiments/train_prediction.py` copies them, the QC entry point has no region bounds |
 | Split proportions | prediction `TRAIN_RATIO 0.7` / `VAL_RATIO 0.15`; QC validation share `--eval_val_ratio 0.5` | class attributes / the QC flag |
-| Random seed | `SEED = 42` in both entry scripts | edit the constant; the standalone baselines expose `--seed` instead |
+| Random seed | `SEED = 42` in both entry scripts | edit the constant |
 | Optimiser internals | gradient clipping 1.0, `SIGMA_MIN 1e-4`, QC `MAX_CONSECUTIVE_REPLACE 2`, `ReduceLROnPlateau(patience=5, factor=0.5)` | class attributes only, no flags |
 | Compute device | CUDA when available, otherwise CPU | no `--device` flag; control it with `CUDA_VISIBLE_DEVICES` |
 | k-sigma threshold | `k` is the `--target_coverage` quantile of the validation standardized residuals, default 0.95 | `--target_coverage`; there is intentionally no offset parameter |
-| Feature-engineering cache | `_pred_data_cache_<hash>.pt` inside the output directory, keyed by the feature-column list | delete it, or choose a different `--output_dir`, to force a rebuild |
+| Feature-engineering cache | `_pred_data_cache_<signature>.pt` inside the output directory, keyed by a 16-character hexadecimal fingerprint of the resolved data directory, the matched files (name, size, modification time), the external test source, the file-name rule, the column settings, `SEQ_LEN` and the two split ratios | delete the file to rebuild; the key itself changes when the inputs or any of those settings change, so a new data directory rebuilds without any manual step. Files left by the earlier 8-character naming scheme are ignored and reported, and one output directory can therefore hold several `.pt` caches |
 | In-figure units | ASCII spellings such as `degC` rather than the degree sign, so figures stay pure ASCII | edit the label maps in `data_processing/` if you need other glyphs |
 
 The shell matters for non-ASCII values: under some terminals (for example Git Bash on Windows)
@@ -105,7 +98,6 @@ CG-DBNet/
 |   |-- __init__.py
 |   |-- model.py                # CGDBNetBackbone, PredictionNet, QCNet, RevIN,
 |   |                           #   CyclicPositionalEncoding, AdaptiveAffineFusion, GaussianHead,
-|   |                           #   LSTMModel, GRUModel, TCNModel, TransformerModel, RevINBaseline,
 |   |                           #   build_pred_model, build_qc_model
 |   |-- data_utils.py           # DataProcessor, MultiFileTimeSeriesDataset, grid-file naming,
 |   |                           #   feature engineering, spatial features, QC sheet pipeline,
@@ -114,13 +106,7 @@ CG-DBNet/
 |   |                           #   Gaussian NLL, dynamic k-sigma calibration
 |-- experiments/
 |   |-- train_prediction.py     # prediction entry point (many grid-point files)
-|   |-- train_qc.py             # QC entry point (one Excel workbook, train/val/test sheets)
-|   `-- baselines/              # standalone runnable baseline scripts
-|       |-- gru.py              #   python experiments/baselines/gru.py --data_dir ... --output_dir ...
-|       |-- lstm.py
-|       |-- tcn.py
-|       |-- transformer.py
-|       `-- xgboost.py
+|   `-- train_qc.py             # QC entry point (one Excel workbook, train/val/test sheets)
 `-- data_processing/
     |-- pca_analysis.py         # PCA of multi-station features
     |-- correlation_analysis.py # Pearson correlation matrix and heatmaps
@@ -132,7 +118,10 @@ CG-DBNet/
 ### 1. Prediction experiment (many files, one per grid point)
 
 `experiments/train_prediction.py` reads a **directory** of Excel (`.xlsx`, `.xls`) or CSV (`.csv`)
-files, one file per grid point or station. Each file must provide:
+files, one file per grid point or station. Legacy `.xls` passes the file-name filter, but `pandas`
+requires the optional `xlrd` package to open it; `xlrd` is not listed in `requirements.txt`, which
+covers the default `.xlsx` and `.csv` inputs, so install it separately when `.xls` files have to be
+read. Each file must provide:
 
 | Content | Default column name | Command-line override |
 | --- | --- | --- |
@@ -162,10 +151,12 @@ Additional requirements:
 - Each file is split chronologically into train / validation / test with the `TRAIN_RATIO` and
   `VAL_RATIO` constants of `PredConfig` (0.7 and 0.15, that is 70/15/15); files that are too short to
   fill all three segments after feature engineering are skipped with a message.
-- The region bounds used to normalize `geo_lat_norm`, `geo_lon_norm` and `geo_dist_center` are the
-  `LAT_MIN` / `LAT_MAX` / `LON_MIN` / `LON_MAX` constants of `PredConfig` in
-  `experiments/train_prediction.py` (28.0-32.0 N, 122.0-126.0 E); edit them in the file if your study
-  region differs.
+- The region bounds used to normalize `geo_lat_norm`, `geo_lon_norm` and `geo_dist_center` are
+  written once in `src/data_utils.py` as `REGION_LAT_MIN` / `REGION_LAT_MAX` and
+  `REGION_LON_MIN` / `REGION_LON_MAX` (29.0-31.5 N, 123.0-125.5 E). `PredConfig` in
+  `experiments/train_prediction.py` copies those constants, so another basin means editing the two
+  lines in `src/data_utils.py`. The QC pipeline works on a single station sheet and has no region
+  bounds.
 - Derived input features are generated automatically: target `lag1`, `lag24`, `diff1`, `diff2`,
   rolling means over 6 and 24 steps; for every external feature column `lag1`-`lag3`, `diff1`,
   `diff2`; and the cyclic time features `hour_sin`, `hour_cos`, `day_sin`, `day_cos`.
@@ -191,9 +182,23 @@ Additional requirements:
 
 Any non-zero label value is treated as an anomaly, so multi-code labels produced by
 `data_processing/synthetic_anomaly.py` can be used directly. The workbook produced by that script
-(sheets `train`, `val`, `test`) is a valid `--data_file`. Derived features are generated as in the
-prediction pipeline (cyclic hour/day features, target `lag1`/`lag24`/rolling means, feature lags and
-first differences) and the whole matrix is standardized with `StandardScaler`.
+(sheets `train`, `val`, `test`) is a valid `--data_file`, but see the note below on which column a QC
+run has to target. Derived features are generated as in the prediction pipeline (cyclic hour/day
+features, target `lag1`/`lag24`/rolling means, feature lags and first differences) and the whole
+matrix is standardized with `StandardScaler`.
+
+> **Which target column carries the injected anomalies.** `synthetic_anomaly.py` writes the injected
+> values into a separate `sst_anomaly` column and never modifies `sst`, so the three sheets are not
+> symmetric: `test` provides `date`, `sst` (clean series), `sst_anomaly` (same series with the four
+> injected anomaly types) and `label`, while `train` and `val` provide only `date` and `sst`. A QC
+> evaluation on this workbook therefore has to target the column that holds the anomalies, that is
+> `--target_col sst_anomaly`. With the default `--target_col sst` the sequential loop reads the clean
+> series while `label` marks points that are normal in it, so the classification block of
+> `metrics.txt` does not measure anomaly detection. Note that `--target_col` applies to every sheet
+> the run reads: `load_sheet` in `src/data_utils.py` requires the time and target columns in each of
+> them and otherwise raises `ValueError: Sheet train missing required columns: ['sst_anomaly']`. As
+> this script does not write `sst_anomaly` into `train` or `val`, supplying a workbook whose three
+> sheets all provide the requested target column is left to the user.
 
 ### 3. Data-processing scripts
 
@@ -204,9 +209,28 @@ first differences) and the whole matrix is standardized with `StandardScaler`.
   shift, spike, Gaussian - and writes a three-sheet workbook with a `label` column
   (0 = normal, 1 = out-of-range, 2 = gradient, 3 = spike, 4 = Gaussian).
 
+`pca_analysis.py` and `correlation_analysis.py` address a station file set with a wider variable list
+than the prediction experiment uses. Both require every matched file to expose the eight columns
+`u10`, `v10`, `d2m`, `air_temperature`, `sea_level_pressure`, `swh`, `sst` and `time` (the
+`REQUIRED_COLS` list at the top of each script), and a file missing any of them aborts the run with
+`KeyError: File ... is missing columns: [...]`. Coordinates are not part of that list: the two
+scripts average the stations found in the directory and never read a latitude or a longitude, so
+neither a `lat`/`lon` data column nor a coordinate parsed from the file name is used; `--pattern`
+still decides which files enter the run. The wind components (`u10`, `v10`), the dewpoint column
+(`d2m`) and the significant wave height (`swh`) have no counterpart in the default prediction column
+scheme (`time`, `sst`, `air_temperature`, `sea_level_pressure`), so a table built for the prediction
+experiment does not satisfy this requirement as it stands.
+
 ## Usage
 
 > All commands are executed from the **package root directory** (where this README resides).
+
+> **The package contains no sample data.** The distributed tree holds code only - `data/` and the
+> `*.csv` / `*.xlsx` inputs are excluded from the repository - so right after a clone the default
+> `--data_dir ./data`, `--test_path ./data/test.xlsx` and `--data_file ./data/qc_data.xlsx` resolve
+> to nothing and a prediction run stops with `No valid grid-point data file found under ./data`.
+> Prepare your own inputs as described in Data Preparation, or generate a labeled QC workbook with
+> `data_processing/synthetic_anomaly.py`, before running the commands below.
 
 ### Prediction experiment
 
@@ -216,7 +240,7 @@ python experiments/train_prediction.py --data_dir ./data --output_dir ./outputs/
 
 # Feature columns and hyper-parameters
 python experiments/train_prediction.py --data_dir ./data --feature_cols air_temperature sea_level_pressure \
-    --seq_len 48 --epochs 50 --batch_size 64 --lr 1e-3
+    --seq_len 48 --epochs 100 --batch_size 64 --lr 1e-3
 
 # Component ablations
 python experiments/train_prediction.py --data_dir ./data --no_msac     # bypass the atrous conv stack
@@ -229,20 +253,13 @@ python experiments/train_prediction.py --data_dir ./data --serial_gru  # GRU dir
 python experiments/train_prediction.py --data_dir ./data --no_conv3
 python experiments/train_prediction.py --data_dir ./data --no_conv5
 python experiments/train_prediction.py --data_dir ./data --no_conv7
-
-# Baselines through the shared entry point
-python experiments/train_prediction.py --data_dir ./data --model lstm
-python experiments/train_prediction.py --data_dir ./data --model gru
-python experiments/train_prediction.py --data_dir ./data --model tcn
-python experiments/train_prediction.py --data_dir ./data --model transformer
-python experiments/train_prediction.py --data_dir ./data --model xgboost
 ```
 
 Arguments of `experiments/train_prediction.py` and their defaults: `--data_dir ./data`,
 `--test_path ./data/test.xlsx`, `--file_pattern` (defaults to the Latin-letter naming rule above),
-`--output_dir ./outputs/prediction`, `--model proposed` (`proposed|lstm|gru|tcn|transformer|xgboost`),
+`--output_dir ./outputs/prediction`, `--model proposed` (`proposed` is the only accepted value),
 `--target_col sst`, `--time_col time`, `--feature_cols air_temperature sea_level_pressure`,
-`--seq_len 48`, `--batch_size 64`, `--epochs 50`, `--lr 0.001`, `--hidden_dim 64`,
+`--seq_len 48`, `--batch_size 64`, `--epochs 100`, `--lr 0.001`, `--hidden_dim 64`,
 `--dropout 0.15`, `--patience 15`, and the store-true ablation flags `--no_pos`, `--no_msac`,
 `--no_gap`, `--no_affine`, `--serial_gru`, `--no_conv3`, `--no_conv5`, `--no_conv7`.
 
@@ -255,7 +272,7 @@ python experiments/train_qc.py --data_file ./data/qc_data.xlsx --output_dir ./ou
 # Sheets, features and hyper-parameters
 python experiments/train_qc.py --data_file ./data/qc_data.xlsx \
     --train_sheet train --eval_sheet val --test_sheet test --label_col label \
-    --seq_len 48 --epochs 200 --target_coverage 0.95
+    --seq_len 48 --epochs 100 --target_coverage 0.95
 
 # Component ablations
 python experiments/train_qc.py --data_file ./data/qc_data.xlsx --model abl_no_msac
@@ -263,25 +280,21 @@ python experiments/train_qc.py --data_file ./data/qc_data.xlsx --model abl_no_da
 python experiments/train_qc.py --data_file ./data/qc_data.xlsx --model abl_no_pos
 python experiments/train_qc.py --data_file ./data/qc_data.xlsx --model abl_affine_add
 python experiments/train_qc.py --data_file ./data/qc_data.xlsx --model abl_serial_gru
-
-# Baseline comparison
-python experiments/train_qc.py --data_file ./data/qc_data.xlsx --model gru
 ```
 
 Arguments of `experiments/train_qc.py`: `--data_file` (required), `--output_dir ./outputs/qc`,
 `--train_sheet train`, `--eval_sheet val`, `--test_sheet test`, `--time_col date`,
 `--target_col sst`, `--feature_cols` (default empty), `--label_col label`, `--eval_val_ratio 0.5`,
-`--seq_len 48`, `--batch_size 64`, `--epochs 200`, `--lr 0.001`, `--hidden_dim 64`,
-`--dropout 0.15`, `--patience 30`, `--target_coverage 0.95`. `--model` defaults to `proposed` and
-accepts `lstm`, `gru`, `tcn`, `transformer`, `xgboost` and the ablation variants listed below.
+`--seq_len 48`, `--batch_size 64`, `--epochs 100`, `--lr 0.001`, `--hidden_dim 64`,
+`--dropout 0.15`, `--patience 30`, `--target_coverage 0.95`. `--model` accepts `proposed` (the
+default) and the five ablation values `abl_no_msac`, `abl_no_dagap`, `abl_no_pos`, `abl_affine_add`,
+`abl_serial_gru`, which are described in the table below.
 `--patience` and `--target_coverage` fall back to the values of `QcConfig` (30 and 0.95) when they
 are not passed.
 
 **k-sigma calibration.** Let `z = |actual - mu| / sigma` on the validation split. The threshold `k`
 is exactly the `--target_coverage` quantile of `z` - no additional offset is added - and the
-empirical coverage reached on validation is stored next to it. For `--model xgboost`, which emits no
-`sigma`, the corresponding threshold is the `--target_coverage` quantile of the validation absolute
-residuals in physical units.
+empirical coverage reached on validation is stored next to it.
 
 **Sequential QC loop.** Starting at index `seq_len`, the model predicts the next step, the
 observation is flagged when it falls outside `mu +/- k * sigma`, and flagged values are replaced by
@@ -300,50 +313,6 @@ applied (`MAX_CONSECUTIVE_REPLACE` in `QcConfig`).
 | `--no_conv3`, `--no_conv5`, `--no_conv7` | not exposed on the QC command line | drop the corresponding kernel from the MSAC concatenation; the normalization and the 1x1 projection adapt to the number of remaining branches |
 
 The prediction flags are independent and can be combined.
-
-### Standalone baseline scripts
-
-Each baseline under `experiments/baselines/` is also a self-contained entry point, so a single
-baseline can be run without touching the CG-DBNet configuration:
-
-```bash
-python experiments/baselines/gru.py --data_dir ./data --output_dir ./outputs/baselines/gru --epochs 50
-python experiments/baselines/lstm.py --data_dir ./data --output_dir ./outputs/baselines/lstm
-python experiments/baselines/tcn.py --data_dir ./data --output_dir ./outputs/baselines/tcn
-python experiments/baselines/transformer.py --data_dir ./data --output_dir ./outputs/baselines/transformer
-python experiments/baselines/xgboost.py --data_dir ./data --output_dir ./outputs/baselines/xgboost
-```
-
-Every script reads the same multi-file grid data through `DataProcessor` and accepts the shared data
-arguments `--data_dir ./data`, `--test_path ./data/test.xlsx`, `--file_pattern`,
-`--target_col sst`, `--time_col time`, `--feature_cols air_temperature sea_level_pressure`,
-`--seq_len 48`, plus `--output_dir` (default `./outputs/baselines/<name>`). On top of that:
-
-| Script | Additional arguments |
-| --- | --- |
-| `gru.py`, `lstm.py`, `tcn.py`, `transformer.py` | `--epochs 50`, `--batch_size 64`, `--lr 0.001`, `--hidden_dim 64`, `--dropout 0.15`, `--patience 15`, `--seed 42`, `--use_revin` |
-| `xgboost.py` | `--lr 0.05`, `--n_estimators 300`, `--max_depth 6`, `--seed 42` |
-
-Each writes its results into its own `--output_dir`: `training_config.json`,
-`predictions_DatasetA_Test.csv` / `metrics_DatasetA_Test.txt` / `prediction_DatasetA_Test.png`, the
-matching `DatasetB_External` trio when `--test_path` provides data, and `loss_history.txt`; the
-neural scripts additionally save `best_model.pth`, and `xgboost.py` saves `xgb_model.pkl` and a
-`Validation` set of prediction/metric/plot files.
-
-How the two routes relate:
-
-- A standalone script builds the model class defined in its own file (for example `GRUModel` in
-  `experiments/baselines/gru.py`), whereas `experiments/train_prediction.py --model gru` builds the
-  `GRUModel` defined in `src/model.py`. Both see the same windows, the same differenced target and
-  the same training loop structure.
-- The prediction entry point always wraps its non-tree baselines in `RevINBaseline`. In the
-  standalone scripts that wrapper is selected explicitly with `--use_revin`, which is off by
-  default; pass it to reproduce the entry-point setup.
-- The tree baseline has no minibatch, hidden-size, dropout or early-stopping options, so `xgboost.py`
-  exposes tree hyper-parameters instead.
-- `experiments/train_qc.py --model lstm|gru|tcn|transformer|xgboost` uses the classes defined in
-  `src/model.py`, since its inputs are already standardized; the standalone scripts cover the
-  prediction task only.
 
 ### Data processing
 
@@ -365,6 +334,14 @@ the per-type ratios `--ratio-out-of-range` (0.2), `--ratio-gradient` (0.3), `--r
 `--anomaly-denominator` (default 34), `--anomaly-start-index` (default 49), and the figure options
 `--zoom-days` (default 5) and `--zoom-time-range`. Run `--help` for the complete list.
 
+The workbook written by `synthetic_anomaly.py` is the intended `--data_file` of
+`experiments/train_qc.py`, and its columns are split across the sheets: `test` carries `date`, `sst`
+(the clean series), `sst_anomaly` (the series with the injected anomalies) and `label`, whereas
+`train` and `val` carry `date` and `sst` only. The injected values are never written into `sst`, so
+evaluating QC against the labels means passing `--target_col sst_anomaly`, and because `--target_col`
+is read from all three sheets the requested column has to exist in each of them - see the note in the
+QC data requirements above.
+
 ## Outputs
 
 Both experiment scripts write into `--output_dir`, which is created automatically. The
@@ -374,10 +351,9 @@ data-processing utilities write into their own `--output` directory.
 
 | File | Content |
 | --- | --- |
-| `training_config.json` | Resolved configuration of the run |
-| `_pred_data_cache_<hash>.pt` | Processed arrays cache, keyed by the feature-column hash; re-used on the next run |
-| `best_model.pth` | Checkpoint at the best validation loss (neural models) |
-| `xgb_model.json` | Saved XGBoost model (`--model xgboost`) |
+| `training_config.json` | Resolved configuration of the run: every `PredConfig` entry (paths, column settings, region bounds, split ratios, hyper-parameters), plus `model_kind` (the `--model` value) and `ablation_toggles`, the eight ablation switches as they took effect in this run |
+| `_pred_data_cache_<signature>.pt` | Processed arrays cache, keyed by a 16-character hexadecimal fingerprint of the input data and of the file-name rule, column settings, `SEQ_LEN` and split ratios; re-used on the next run when the fingerprint matches, so one directory can hold one file per input set |
+| `best_model.pth` | Checkpoint at the best validation loss |
 | `loss_history.txt` | Per-epoch train/validation MSE and validation MAE/RMSE/R2/MAPE/SMAPE/MASE, plus the best epoch |
 | `predictions_DatasetA_Test.csv` | Actual vs. predicted values on the in-grid test split |
 | `metrics_DatasetA_Test.txt` | Regression metrics on the in-grid test split |
@@ -387,20 +363,24 @@ data-processing utilities write into their own `--output` directory.
 | `prediction_DatasetB_External.png` | Actual vs. predicted series for the external test data |
 
 The three `DatasetB_External` files are written only when `--test_path` resolves to usable data.
+Because `training_config.json` records `model_kind` together with the eight ablation switches, two
+runs that share every hyper-parameter but differ in an ablation flag now leave distinguishable
+configuration files behind. The QC entry point stores `model_kind` in its own
+`training_config.json`, which is where its `abl_*` variants are recorded.
 
 ### QC experiment (default `./outputs/qc`)
 
 | File | Content |
 | --- | --- |
+| `training_config.json` | Every `QcConfig` entry as resolved for the run (window, batch, epochs, learning rate, hidden size, dropout, patience, gradient clip, `sigma_min`, target coverage, replacement limit, device) plus `model_kind` |
 | `config.json` | Model kind, input dimension and column order, hyper-parameters, column settings |
 | `scaler.pkl`, `target_scaler.pkl` | Fitted input and target scalers, for reuse on new data |
-| `model.pth` | Checkpoint at the best validation NLL (neural models) |
-| `xgb_model.json` | Saved XGBoost model (`--model xgboost`) |
+| `model.pth` | Checkpoint at the best validation NLL |
 | `loss_history.txt` | Per-epoch train/validation Gaussian NLL and the best epoch |
 | `train_log.json` | Loss history, best validation NLL, number of executed epochs |
-| `k_sigma_config.json` | `target_coverage`, calibrated `k_sigma` (or the residual threshold and its `residual_quantile` method for XGBoost), validation coverage and sigma statistics |
+| `k_sigma_config.json` | `target_coverage`, calibrated `k_sigma`, validation coverage and sigma statistics |
 | `qc_result.csv` | Per-step `Actual`, `Mu`, `Sigma`, `Lower`, `Upper`, `k_i`, `IsAnomaly`, `ReplacedForNextStep`, `CorrectedInputValue` and `TrueLabel` (when a label column is available) |
-| `metrics.txt` | `ModelName`, then the calibrated threshold under the key `k_sigma` for the neural-network models and under the key `residual_threshold` for `--model xgboost`, detected/total point counts, replaced count and the classification metrics |
+| `metrics.txt` | `ModelName`, then the calibrated threshold under the key `k_sigma`, detected/total point counts, replaced count and the classification metrics |
 | `qc_plot.png` | Observed series, predicted mean, acceptance band, detected anomalies and true labels |
 
 ### Data processing (default `--output .`)
@@ -506,8 +486,13 @@ Losses: MSE on `mu` (prediction) and Gaussian negative log-likelihood
   `data_processing/synthetic_anomaly.py` exposes `--seed` (default 42).
 - **Invalid rows**: non-finite values and rows missing required features are dropped per file, and a
   file is skipped with a printed reason when it is missing required columns, coordinates or length.
-- **Caching**: the processed prediction arrays are cached in `--output_dir` keyed by the feature
-  column set; delete `_pred_data_cache_*.pt` to force reprocessing.
+- **Caching**: the processed prediction arrays are cached in `--output_dir` as
+  `_pred_data_cache_<signature>.pt`, where the 16-character hexadecimal signature fingerprints the
+  resolved training directory and the files it contributes (name, size, modification time), the
+  external test source, the file-name rule, the column settings, `SEQ_LEN` and the split ratios. A
+  different key rebuilds the arrays on its own, so pointing the run at other data is enough; delete
+  `_pred_data_cache_*.pt` to force reprocessing of the current data. A cache file named with the
+  earlier 8-character key is never read: the run reports it and writes a fresh file.
 
 ## License
 
